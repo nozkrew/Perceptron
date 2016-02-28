@@ -1,0 +1,263 @@
+<html>
+<head>
+    <script src="perceptron.js"></script>
+    <script>
+        /*--------  Constants ------*/
+        var PIXEL_SIZE = 60; //pixels
+
+        var GRID_WIDTH = 0;
+        var GRID_HEIGHT = 0;
+
+        var OUTPUT_COUNT = 6;
+
+        var SORTIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        var THRESHOLD = 0.5;
+
+        var LEARNING_RATE = 0.25;
+
+        var INIT_WEIGHT = 1;
+
+        /*--------  Variables ------*/
+        var pixels = [];
+
+        var poids = [];
+
+        var tsorties = [];
+
+        var mousePressed = false;
+        var mousePixelIndex = -1;
+        var canvas = null;
+
+        /*--------  Initialization ------*/
+        function init() {
+            canvas = document.getElementById("canvas");
+            GRID_WIDTH = Math.floor(canvas.width/PIXEL_SIZE);
+            GRID_HEIGHT = Math.floor(canvas.height/PIXEL_SIZE);
+
+            resetCanvas();
+
+            initWeight(SORTIES.length);
+
+            initTSorties();
+
+            document.getElementById('threshold').innerHTML = THRESHOLD;
+            document.getElementById('learning_rate').innerHTML = LEARNING_RATE;
+
+            canvas.addEventListener("click", function(e) {
+                var mousePoint = mouseCanvasPosition(e);
+                togglePixelAtPoint(mousePoint);
+                drawPixels();
+            });
+
+            canvas.addEventListener("mousedown", function() {
+                mousePressed = true;
+            }, false);
+            canvas.addEventListener("mouseup", function() {
+                mousePressed = false;
+            }, false);
+
+            canvas.addEventListener("mousemove", function(e) {
+                if(mousePressed) {
+                    var mousePoint = mouseCanvasPosition(e);
+                    var pixelIndex = pixelIndexAtPoint(e);
+                    if(pixelIndex != mousePixelIndex) {
+                        setPixelValueAtPoint(mousePoint, true);
+                        drawPixels();
+                        mousePixelIndex = pixelIndex;
+                    }
+                }
+            })
+        }
+
+        /*--------  Interactions  ------*/
+        function learnClicked() {
+            var learnedNumber = parseInt(getInputElement().value);
+            learn(learnedNumber);
+            processClicked();
+        }
+
+        function processClicked() {
+            processedNumbers = process();
+
+            showProcessedNumbers(processedNumbers);
+        }
+
+        function showProcessedNumbers(processedNumbers) {
+            var result = "";
+            for(var i = 0; i < processedNumbers.length; i++) {
+                result += processedNumbers[i].toString() + ",";
+            }
+            if(result.length > 0) result = result.substring(0, result.length-1);
+            getOutputElement().value = result;
+        }
+
+        function getInputElement(){
+            return document.getElementById("inputNumber");
+        }
+
+        function getOutputElement(){
+            return document.getElementById("outputNumber");
+        }
+
+        /*--------  Learn and process  ------*/
+        function learn(number) {
+            //... p = p + (A - O) * E * t
+            // poid = poid + (la valeur attendue - la valeur obtenue) * le input * taux d'apprentissage
+
+            process();
+
+            foreachPixel(function(x, y, pixel){
+                for(var s = 0; s < SORTIES.length; s++){
+                    var attendue = 0;
+                    if(s == number){
+                        attendue = 1;
+                    }
+                    var input = 0;
+                    if(tsorties[s]  > THRESHOLD){
+                        input = 1;
+                    }
+                    poids[x][y][s] = poids[x][y][s] + (attendue - input) * pixel * LEARNING_RATE;
+                }
+            });
+        }
+
+        function process() {
+
+            initTSorties();
+
+            foreachPixel(function(x, y, pixel){
+                for(var s = 0; s < SORTIES.length; s++){
+                    tsorties[s] += poids[x][y][s] * pixel;
+                }
+            });
+
+            return getObtain();
+
+        }
+
+        /* ---------------------------------------- */
+
+        //Recherche des valeurs obtenues
+        function getObtain(){
+            var obtenain = [];
+
+            for(var s = 0; s < SORTIES.length; s++){
+                if(tsorties[s] > THRESHOLD){
+                    obtenain.push(s);
+                }
+            }
+            return obtenain;
+        }
+
+        //Boucle sur tous les pixels
+        function foreachPixel(f) {
+            for(var x = 0; x < GRID_WIDTH; x++) {
+                for(var y = 0; y < GRID_HEIGHT; y++) {
+                    f(x, y, pixels[x][y]);
+                }
+            }
+        }
+
+        //Initialisation des poids
+        function initWeight(nbSorties){
+            for(var x = 0; x < GRID_WIDTH; x++) {
+                poids[x] = [];
+                for(var y = 0; y < GRID_HEIGHT; y++) {
+                    poids[x][y] = [];
+                    for(var z = 0; z < nbSorties; z++){
+                        poids[x][y][z] = INIT_WEIGHT;
+                    }
+                }
+            }
+        }
+
+        //Initialisation des sorties
+        function initTSorties(){
+            for(var i = 0; i < SORTIES.length; i++){
+                tsorties[i] = 1;
+            }
+        }
+
+        /*--------  Canvas helpers  ------*/
+        function mouseCanvasPosition(e) {
+            var rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function pixelIndexAtPoint(point) {
+            var pixelIndex = -1;
+            var x = Math.floor(point.x/PIXEL_SIZE);
+            var y = Math.floor(point.y/PIXEL_SIZE);
+            if(x < GRID_WIDTH && y < GRID_HEIGHT) {
+                pixelIndex = y * GRID_WIDTH + x;
+            }
+            return pixelIndex;
+        }
+
+        function togglePixelAtPoint(point) {
+            var x = Math.floor(point.x/PIXEL_SIZE);
+            var y = Math.floor(point.y/PIXEL_SIZE);
+            if(x < GRID_WIDTH && y < GRID_HEIGHT) {
+                pixels[x][y] = !pixels[x][y];
+            }
+        }
+
+        function setPixelValueAtPoint(point, value) {
+            var x = Math.floor(point.x/PIXEL_SIZE);
+            var y = Math.floor(point.y/PIXEL_SIZE);
+            if(x < GRID_WIDTH && y < GRID_HEIGHT) {
+                pixels[x][y] = value;
+            }
+        }
+
+        function resetCanvas() {
+            resetPixels();
+            drawPixels();
+        }
+
+        function resetPixels() {
+            for(var x = 0; x < GRID_WIDTH; x++) {
+                pixels[x] = [];
+                for(var y = 0; y < GRID_HEIGHT; y++) {
+                    pixels[x][y] = false;
+                }
+            }
+        }
+
+        function drawPixels() {
+            var canvas = document.getElementById("canvas");
+            var context = canvas.getContext("2d");
+
+            for(var y = 0; y < GRID_HEIGHT; y++) {
+                for(var x = 0; x < GRID_WIDTH; x++) {
+                    context.beginPath();
+                    context.rect(x*PIXEL_SIZE, y*PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+                    context.fillStyle = pixels[x][y] ? '#2D2' : '#555';
+                    context.fill();
+                    context.lineWidth = 1;
+                    context.strokeStyle = '#000';
+                    context.stroke();
+                }
+            }
+        }
+
+    </script>
+</head>
+<body onLoad="init();">
+<canvas id="canvas" width="300" height="400" style="float:left">
+    alternate content
+</canvas>
+<div style="margin-left:50px;float:left">
+    <input type="button" value="Reset canvas" onclick="resetCanvas()"/><br/>
+    <br/>
+    <input type="text" id="inputNumber"><input type="button" value="Learn" onclick="learnClicked()"/><br/>
+    <input type="text" id="outputNumber"><input type="button" value="Process" onclick="processClicked()"/><br/>
+    <p>Taux d'apprentissage : <span id="learning_rate"></span></p>
+    <p>Seuil : <span id="threshold"></span></p>
+</div>
+</body>
+</html>
